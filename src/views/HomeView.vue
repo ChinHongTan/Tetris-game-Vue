@@ -273,20 +273,20 @@ export default defineComponent({
     }
 
     const pauseGame = () => {
-      isPlaying.value = false
-      if (gameLoop) {
-        clearInterval(gameLoop)
-        gameLoop = null
+      if (isPlaying.value && !isGameOver.value) {
+        isPlaying.value = false
+        if (gameLoop) {
+          clearInterval(gameLoop)
+          gameLoop = null
+        }
       }
     }
 
     const resumeGame = () => {
-      isPlaying.value = true
-      level.value = 1
-      linesCleared.value = 0
-      gameLoop = setInterval(moveDown, gameSpeed.value)
-      heldPiece.value = null
-      canSwapHeld.value = true
+      if (hasGameStarted.value && !isPlaying.value && !isGameOver.value) {
+        isPlaying.value = true
+        gameLoop = setInterval(moveDown, gameSpeed.value)
+      }
     }
 
     const resetGame = () => {
@@ -302,6 +302,7 @@ export default defineComponent({
       currentPosition.value = { x: Math.floor(BOARD_WIDTH / 2) - 1, y: 0 }
       hasGameStarted.value = false
       isGameOver.value = false
+      isPlaying.value = false
       gameSpeed.value = calculateGameSpeed(1) // Reset game speed to level 1
     }
 
@@ -347,6 +348,21 @@ export default defineComponent({
     }
 
     const handleKeydown = (event: KeyboardEvent) => {
+      // These controls should work even if the game is not active
+      if (event.key === 'p' || event.key === 'P') {
+        if (hasGameStarted.value && !isGameOver.value) {
+          isPlaying.value ? pauseGame() : resumeGame()
+        }
+        return
+      }
+      if (event.key === 'r' || event.key === 'R') {
+        resetGame()
+        return
+      }
+
+      // These controls should only work if the game is active
+      if (!isPlaying.value) return
+
       switch (event.key) {
         case 'ArrowLeft':
           movePiece('left')
@@ -359,12 +375,6 @@ export default defineComponent({
           break
         case 'ArrowUp':
           rotate()
-          break
-        case 'p':
-          pauseGame()
-          break
-        case 'r':
-          resetGame()
           break
         case ' ':
           hardDrop()
