@@ -1,0 +1,333 @@
+<template>
+  <v-container class="text-center">
+    <h1 class="mb-4">Tetris Game</h1>
+    <div class="d-flex justify-center mb-4">
+      <tetris-board :board="gameBoard" />
+      <div class="ml-4">
+        <h2>Score: {{ score }}</h2>
+        <h3>Level: {{ level }}</h3>
+        <h3>Lines Cleared: {{ linesCleared }}</h3>
+        <h3 v-if="isGameOver" class="error--text">Game Over</h3>
+        <next-piece-preview :piece="nextPiece" />
+        <held-piece-preview :piece="heldPiece" />
+      </div>
+    </div>
+    <v-btn @click="handleGameControl" color="primary" class="mr-2">{{
+      gameControlButtonText
+    }}</v-btn>
+    <v-btn @click="resetGame" color="error" :disabled="!hasGameStarted"> Reset Game </v-btn>
+  </v-container>
+</template>
+
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue'
+import TetrisBoard from '@/components/TetrisBoard.vue'
+import NextPiecePreview from '@/components/NextPiecePreview.vue'
+import HeldPiecePreview from '@/components/HeldPiecePreview.vue'
+import {
+  createEmptyBoard,
+  randomTetromino,
+  rotatePiece,
+  BOARD_HEIGHT,
+  BOARD_WIDTH
+} from '@/utils/gameLogic'
+
+export default defineComponent({
+  name: 'HomeView',
+  components: {
+    TetrisBoard,
+    NextPiecePreview,
+    HeldPiecePreview
+  },
+  setup() {
+    const board = ref(createEmptyBoard())
+    const currentPiece = ref(randomTetromino())
+    const currentPosition = ref({ x: Math.floor(BOARD_WIDTH / 2) - 1, y: 0 })
+    const isPlaying = ref(false)
+    const hasGameStarted = ref(false)
+    const isGameOver = ref(false)
+    const gameSpeed = ref(1000)
+    const score = ref(0)
+    const nextPiece = ref(randomTetromino())
+    const heldPiece = ref<number[][] | null>(null)
+    const canSwapHeld = ref(true)
+    const level = ref(1)
+    const linesCleared = ref(0)
+    let gameLoop: number | null = null
+
+    const gameBoard = computed(() => {
+      const newBoard = board.value.map((row) => [...row])
+      currentPiece.value.forEach((row: number[], y: number) => {
+        row.forEach((cell: number, x: number) => {
+          if (cell !== 0) {
+            newBoard[currentPosition.value.y + y][currentPosition.value.x + x] = cell
+          }
+        })
+      })
+      return newBoard
+    })
+
+    const movePiece = (direction: 'left' | 'right' | 'down') => {
+      const newPosition = { ...currentPosition.value }
+      switch (direction) {
+        case 'left':
+          newPosition.x -= 1
+          break
+        case 'right':
+          newPosition.x += 1
+          break
+        case 'down':
+          moveDown()
+          return
+      }
+      if (isValidMove(newPosition)) currentPosition.value = newPosition
+    }
+
+    const calculateGameSpeed = (currentLevel: number) => {
+      // Decrease game speed by 50ms for each level, with a minimum of 100ms
+      return Math.max(1000 - (currentLevel - 1) * 50, 100)
+    }
+
+    const rotate = () => {
+      const rotatedPiece = rotatePiece(currentPiece.value)
+      if (isValidMove(currentPosition.value, rotatedPiece)) {
+        currentPiece.value = rotatedPiece
+      }
+    }
+
+    const moveDown = () => {
+      if (isValidMove({ ...currentPosition.value, y: currentPosition.value.y + 1 })) {
+        currentPosition.value.y++
+      } else {
+        lockPiece()
+      }
+    }
+
+    const lockPiece = () => {
+      canSwapHeld.value = true
+      currentPiece.value.forEach((row: number[], y: number) => {
+        row.forEach((cell: number, x: number) => {
+          if (cell !== 0) {
+            board.value[currentPosition.value.y + y][currentPosition.value.x + x] = cell
+          }
+        })
+      })
+
+      // Check for line clear
+      clearLines()
+
+      // Spawn new piece
+      currentPiece.value = nextPiece.value
+      nextPiece.value = randomTetromino()
+      currentPosition.value = { x: Math.floor(BOARD_WIDTH / 2) - 1, y: 0 }
+
+      // Check for game over
+      if (!isValidMove(currentPosition.value)) {
+        endGame()
+      }
+    }
+
+    const holdPiece = () => {
+      if (!canSwapHeld.value) return
+
+      if (heldPiece.value === null) {
+        heldPiece.value = currentPiece.value
+        currentPiece.value = nextPiece.value
+        nextPiece.value = randomTetromino()
+      } else {
+        const temp = currentPiece.value
+        currentPiece.value = heldPiece.value
+        heldPiece.value = temp
+      }
+      currentPosition.value = { x: Math.floor(BOARD_WIDTH / 2) - 1, y: 0 }
+      canSwapHeld.value = false
+    }
+
+    const hardDrop = () => {
+      while (isValidMove({ ...currentPosition.value, y: currentPosition.value.y + 1 })) {
+        currentPosition.value.y++
+      }
+      lockPiece()
+    }
+
+    const clearLines = () => {
+      let linesCleared = 0
+
+      for (let y = BOARD_HEIGHT - 1; y >= 0; y--) {
+        if (board.value[y].every((cell) => cell !== 0)) {
+          // Remove line
+          board.value.splice(y, 1)
+          // Add new empty line at the top
+          board.value.unshift(Array(BOARD_WIDTH).fill(0))
+          linesCleared++
+          y++
+        }
+      }
+
+      // Update score
+      if (linesCleared > 0) {
+        updateScore(linesCleared)
+      }
+    }
+
+    const updateScore = (clearedLines: number) => {
+      // 100 points per line, with bonuses for multiple lines
+      const points = [0, 100, 300, 500, 800]
+      score.value += points[clearedLines] * level.value
+      linesCleared.value += clearedLines
+
+      // Increase level every 10 lines cleared
+      if (linesCleared.value >= level.value * 10) {
+        level.value++
+
+        // Increase game speed
+        if (gameLoop) {
+          clearInterval(gameLoop)
+          gameSpeed.value = calculateGameSpeed(level.value)
+          gameLoop = setInterval(moveDown, gameSpeed.value)
+        }
+      }
+    }
+
+    const startGame = () => {
+      score.value = 0
+      board.value = createEmptyBoard()
+      currentPiece.value = randomTetromino()
+      nextPiece.value = randomTetromino()
+      currentPosition.value = { x: Math.floor(BOARD_WIDTH / 2) - 1, y: 0 }
+      isPlaying.value = true
+      hasGameStarted.value = true
+      isGameOver.value = false
+      level.value = 1
+      linesCleared.value = 0
+      heldPiece.value = null
+      canSwapHeld.value = true
+
+      if (gameLoop) {
+        clearInterval(gameLoop)
+        gameLoop = null
+      }
+      gameLoop = setInterval(moveDown, gameSpeed.value)
+    }
+
+    const pauseGame = () => {
+      isPlaying.value = false
+      if (gameLoop) {
+        clearInterval(gameLoop)
+        gameLoop = null
+      }
+    }
+
+    const resumeGame = () => {
+      isPlaying.value = true
+      level.value = 1
+      linesCleared.value = 0
+      gameLoop = setInterval(moveDown, gameSpeed.value)
+      heldPiece.value = null
+      canSwapHeld.value = true
+    }
+
+    const resetGame = () => {
+      pauseGame()
+      score.value = 0
+      board.value = createEmptyBoard()
+      currentPiece.value = randomTetromino()
+      currentPosition.value = { x: Math.floor(BOARD_WIDTH / 2) - 1, y: 0 }
+      hasGameStarted.value = false
+      isGameOver.value = false
+    }
+
+    const endGame = () => {
+      isPlaying.value = false
+      isGameOver.value = true
+      if (gameLoop) {
+        clearInterval(gameLoop)
+        gameLoop = null
+      }
+    }
+
+    const handleGameControl = () => {
+      if (!hasGameStarted.value || isGameOver.value) {
+        startGame()
+      } else if (isPlaying.value) {
+        pauseGame()
+      } else {
+        resumeGame()
+      }
+    }
+
+    const gameControlButtonText = computed(() => {
+      if (!hasGameStarted.value || isGameOver.value) return 'Start Game'
+      return isPlaying.value ? 'Pause' : 'Resume'
+    })
+
+    const isValidMove = (
+      position: { x: number; y: number },
+      piece: number[][] = currentPiece.value
+    ) => {
+      return piece.every((row: number[], y: number) => {
+        return row.every((cell: number, x: number) => {
+          if (cell === 0) return true
+          const newX = position.x + x
+          const newY = position.y + y
+          if (newX < 0 || newX >= BOARD_WIDTH || newY >= BOARD_HEIGHT) return false
+          if (newY < 0) return true
+          return board.value[newY][newX] === 0
+        })
+      })
+    }
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      switch (event.key) {
+        case 'ArrowLeft':
+          movePiece('left')
+          break
+        case 'ArrowRight':
+          movePiece('right')
+          break
+        case 'ArrowDown':
+          movePiece('down')
+          break
+        case 'ArrowUp':
+          rotate()
+          break
+        case 'p':
+          pauseGame()
+          break
+        case 'r':
+          resetGame()
+          break
+        case ' ':
+          hardDrop()
+          break
+        case 'Shift':
+          holdPiece()
+          break
+      }
+    }
+
+    onMounted(() => {
+      window.addEventListener('keydown', handleKeydown)
+    })
+
+    onUnmounted(() => {
+      window.removeEventListener('keydown', handleKeydown)
+      if (gameLoop) clearInterval(gameLoop)
+    })
+
+    return {
+      gameBoard,
+      handleGameControl,
+      resetGame,
+      gameControlButtonText,
+      hasGameStarted,
+      score,
+      isGameOver,
+      nextPiece,
+      level,
+      linesCleared,
+      heldPiece
+    }
+  }
+})
+</script>
