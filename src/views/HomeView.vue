@@ -12,7 +12,7 @@
       </div>
     </div>
     <h3 v-if="isGameOver" class="error--text">Game Over</h3>
-    <v-btn @click="handleGameControl" color="primary" class="mr-2">{{
+    <v-btn @click="handleGameControl" @keydown.space.prevent color="primary" class="mr-2">{{
       gameControlButtonText
     }}</v-btn>
     <v-btn @click="resetGame" color="error" :disabled="!hasGameStarted"> Reset Game </v-btn>
@@ -404,6 +404,9 @@ export default defineComponent({
       } else {
         resumeGame()
       }
+
+      // Remove focus from the button
+      ;(document.activeElement as HTMLElement).blur()
     }
 
     const gameControlButtonText = computed(() => {
@@ -429,6 +432,10 @@ export default defineComponent({
     }
 
     const handleKeydown = (event: KeyboardEvent) => {
+      // Prevent default behavior for these keys
+      if (event.key === ' ') {
+        event.preventDefault()
+      }
       // These controls should work even if the game is not active
       if (event.key === 'p' || event.key === 'P') {
         if (hasGameStarted.value && !isGameOver.value) {
