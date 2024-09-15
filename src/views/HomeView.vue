@@ -105,11 +105,18 @@ export default defineComponent({
     const gameBoard = computed(() => {
       const newBoard = board.value.map((row) => [...row])
       if (!isGameActive.value) return newBoard
+
       const ghostPosition = calculateGhostPosition()
+
+      // Draw ghost piece
       currentPiece.value.forEach((row: number[], y: number) => {
         row.forEach((cell: number, x: number) => {
           if (cell !== 0) {
-            newBoard[ghostPosition.y + y][ghostPosition.x + x] = -1 // Use -1 to represent ghost piece
+            const ghostY = ghostPosition.y + y
+            const ghostX = ghostPosition.x + x
+            if (ghostY >= 0 && ghostY < BOARD_HEIGHT && ghostX >= 0 && ghostX < BOARD_WIDTH) {
+              newBoard[ghostY][ghostX] = -1 // Use -1 to represent ghost piece
+            }
           }
         })
       })
@@ -118,13 +125,31 @@ export default defineComponent({
       currentPiece.value.forEach((row: number[], y: number) => {
         row.forEach((cell: number, x: number) => {
           if (cell !== 0) {
-            newBoard[currentPosition.value.y + y][currentPosition.value.x + x] = cell
+            const pieceY = currentPosition.value.y + y
+            const pieceX = currentPosition.value.x + x
+            if (pieceY >= 0 && pieceY < BOARD_HEIGHT && pieceX >= 0 && pieceX < BOARD_WIDTH) {
+              newBoard[pieceY][pieceX] = cell
+            }
           }
         })
       })
 
       return newBoard
     })
+
+    const findHighestValidPosition = (piece: number[][]) => {
+      let y = 0
+      const maxAttempts = BOARD_HEIGHT + piece.length // Prevent infinite loop
+      let attempts = 0
+      while (
+        attempts < maxAttempts &&
+        !isValidMove({ x: Math.floor(BOARD_WIDTH / 2) - 1, y }, piece)
+      ) {
+        y--
+        attempts++
+      }
+      return y
+    }
 
     const movePiece = (direction: 'left' | 'right' | 'down') => {
       const newPosition = { ...currentPosition.value }
@@ -149,7 +174,10 @@ export default defineComponent({
 
     const calculateGhostPosition = () => {
       const ghostPosition = { ...currentPosition.value }
-      while (isValidMove({ ...ghostPosition, y: ghostPosition.y + 1 })) {
+      while (
+        ghostPosition.y < BOARD_HEIGHT &&
+        isValidMove({ ...ghostPosition, y: ghostPosition.y + 1 })
+      ) {
         ghostPosition.y++
       }
       return ghostPosition
@@ -167,32 +195,49 @@ export default defineComponent({
         currentPosition.value.y++
       } else {
         lockPiece()
+        if (checkGameOver()) {
+          endGame()
+        }
       }
     }
 
     const lockPiece = () => {
-      canSwapHeld.value = true
       currentPiece.value.forEach((row: number[], y: number) => {
         row.forEach((cell: number, x: number) => {
           if (cell !== 0) {
-            board.value[currentPosition.value.y + y][currentPosition.value.x + x] = cell
+            const boardY = currentPosition.value.y + y
+            const boardX = currentPosition.value.x + x
+            if (boardY >= 0 && boardY < BOARD_HEIGHT) {
+              board.value[boardY][boardX] = cell
+            }
           }
         })
       })
 
-      // Check for line clear
+      canSwapHeld.value = true
       clearLines()
+      updateGameStats()
+
+      if (checkGameOver()) {
+        endGame()
+        return
+      }
 
       // Spawn new piece
       currentPiece.value = nextPiece.value
       nextPiece.value = randomTetromino()
-      currentPosition.value = { x: Math.floor(BOARD_WIDTH / 2) - 1, y: 0 }
+      const spawnY = findHighestValidPosition(currentPiece.value)
+      currentPosition.value = { x: Math.floor(BOARD_WIDTH / 2) - 1, y: spawnY }
 
-      // Check for game over
+      // Check if the new piece can be placed
       if (!isValidMove(currentPosition.value)) {
         endGame()
       }
-      updateGameStats()
+    }
+
+    const checkGameOver = () => {
+      // Check if any cell in the top row is filled
+      return board.value[0].some((cell) => cell !== 0)
     }
 
     const holdPiece = () => {
@@ -340,8 +385,9 @@ export default defineComponent({
           if (cell === 0) return true
           const newX = position.x + x
           const newY = position.y + y
-          if (newX < 0 || newX >= BOARD_WIDTH || newY >= BOARD_HEIGHT) return false
-          if (newY < 0) return true
+          if (newX < 0 || newX >= BOARD_WIDTH) return false
+          if (newY >= BOARD_HEIGHT) return false
+          if (newY < 0) return true // Allow pieces to be partially above the board
           return board.value[newY][newX] === 0
         })
       })
