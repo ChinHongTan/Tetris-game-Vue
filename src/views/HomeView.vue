@@ -47,6 +47,7 @@ import TetrisBoard from '@/components/TetrisBoard.vue'
 import NextPiecePreview from '@/components/NextPiecePreview.vue'
 import HeldPiecePreview from '@/components/HeldPiecePreview.vue'
 import type { GameStats } from '@/types/gameTypes'
+import { KICK_TABLES, type KickData } from '@/utils/srs'
 import {
   createEmptyBoard,
   randomTetromino,
@@ -54,6 +55,7 @@ import {
   BOARD_HEIGHT,
   BOARD_WIDTH
 } from '@/utils/gameLogic'
+import type { Piece } from '@/utils/gameLogic'
 
 export default defineComponent({
   name: 'HomeView',
@@ -64,15 +66,15 @@ export default defineComponent({
   },
   setup() {
     const board = ref(createEmptyBoard())
-    const currentPiece = ref(randomTetromino())
+    const currentPiece = ref<Piece>(randomTetromino())
     const currentPosition = ref({ x: Math.floor(BOARD_WIDTH / 2) - 1, y: 0 })
     const isPlaying = ref(false)
     const hasGameStarted = ref(false)
     const isGameOver = ref(false)
     const gameSpeed = ref(1000)
     const score = ref(0)
-    const nextPiece = ref(randomTetromino())
-    const heldPiece = ref<number[][] | null>(null)
+    const nextPiece = ref<Piece>(randomTetromino())
+    const heldPiece = ref<Piece | null>(null)
     const canSwapHeld = ref(true)
     const level = ref(1)
     const linesCleared = ref(0)
@@ -114,7 +116,7 @@ export default defineComponent({
       const ghostPosition = calculateGhostPosition()
 
       // Draw ghost piece
-      currentPiece.value.forEach((row: number[], y: number) => {
+      currentPiece.value.shape.forEach((row: number[], y: number) => {
         row.forEach((cell: number, x: number) => {
           if (cell !== 0) {
             const ghostY = ghostPosition.y + y
@@ -127,7 +129,7 @@ export default defineComponent({
       })
 
       // Draw current piece
-      currentPiece.value.forEach((row: number[], y: number) => {
+      currentPiece.value.shape.forEach((row: number[], y: number) => {
         row.forEach((cell: number, x: number) => {
           if (cell !== 0) {
             const pieceY = currentPosition.value.y + y
@@ -142,13 +144,13 @@ export default defineComponent({
       return newBoard
     })
 
-    const findHighestValidPosition = (piece: number[][]) => {
+    const findHighestValidPosition = (piece: Piece) => {
       let y = 0
-      const maxAttempts = BOARD_HEIGHT + piece.length // Prevent infinite loop
+      const maxAttempts = BOARD_HEIGHT + piece.shape.length // Prevent infinite loop
       let attempts = 0
       while (
         attempts < maxAttempts &&
-        !isValidMove({ x: Math.floor(BOARD_WIDTH / 2) - 1, y }, piece)
+        !isValidMove({ x: Math.floor(BOARD_WIDTH / 2) - 1, y }, piece.shape)
       ) {
         y--
         attempts++
@@ -181,17 +183,28 @@ export default defineComponent({
       const ghostPosition = { ...currentPosition.value }
       while (
         ghostPosition.y < BOARD_HEIGHT &&
-        isValidMove({ ...ghostPosition, y: ghostPosition.y + 1 })
+        isValidMove({ ...ghostPosition, y: ghostPosition.y + 1 }, currentPiece.value.shape)
       ) {
         ghostPosition.y++
       }
       return ghostPosition
     }
 
-    const rotate = () => {
-      const rotatedPiece = rotatePiece(currentPiece.value)
-      if (isValidMove(currentPosition.value, rotatedPiece)) {
-        currentPiece.value = rotatedPiece
+    const rotate = (direction: 1 | -1 = 1) => {
+      const rotatedPiece = rotatePiece(currentPiece.value, direction)
+      const kickTable = currentPiece.value.shape.length === 4 ? KICK_TABLES.I : KICK_TABLES.JLSTZ
+      const tests = kickTable[currentPiece.value.rotationState]
+
+      for (const [testX, testY] of tests) {
+        const newPosition = {
+          x: currentPosition.value.x + testX,
+          y: currentPosition.value.y - testY // Subtract Y because Tetris coordinate system is inverted
+        }
+        if (isValidMove(newPosition, rotatedPiece.shape)) {
+          currentPiece.value = rotatedPiece
+          currentPosition.value = newPosition
+          return
+        }
       }
     }
 
@@ -207,7 +220,7 @@ export default defineComponent({
     }
 
     const lockPiece = () => {
-      currentPiece.value.forEach((row: number[], y: number) => {
+      currentPiece.value.shape.forEach((row: number[], y: number) => {
         row.forEach((cell: number, x: number) => {
           if (cell !== 0) {
             const boardY = currentPosition.value.y + y
@@ -262,7 +275,12 @@ export default defineComponent({
     }
 
     const hardDrop = () => {
-      while (isValidMove({ ...currentPosition.value, y: currentPosition.value.y + 1 })) {
+      while (
+        isValidMove(
+          { ...currentPosition.value, y: currentPosition.value.y + 1 },
+          currentPiece.value.shape
+        )
+      ) {
         currentPosition.value.y++
       }
       lockPiece()
@@ -395,9 +413,9 @@ export default defineComponent({
 
     const isValidMove = (
       position: { x: number; y: number },
-      piece: number[][] = currentPiece.value
+      shape: number[][] = currentPiece.value.shape
     ) => {
-      return piece.every((row: number[], y: number) => {
+      return shape.every((row: number[], y: number) => {
         return row.every((cell: number, x: number) => {
           if (cell === 0) return true
           const newX = position.x + x
@@ -437,7 +455,11 @@ export default defineComponent({
           movePiece('down')
           break
         case 'ArrowUp':
-          rotate()
+          rotate(1) // Clockwise rotation
+          break
+        case 'z':
+        case 'Z':
+          rotate(-1) // Counter-clockwise rotation
           break
         case ' ':
           hardDrop()

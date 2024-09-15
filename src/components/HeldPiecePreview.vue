@@ -2,7 +2,7 @@
   <div class="held-piece-preview">
     <h3>Held Piece</h3>
     <div class="preview-grid" v-if="piece">
-      <div v-for="(row, y) in piece" :key="y" class="preview-row">
+      <div v-for="(row, y) in piece.shape" :key="y" class="preview-row">
         <div
           v-for="(cell, x) in row"
           :key="x"
@@ -20,12 +20,13 @@
 <script lang="ts">
 import { defineComponent } from 'vue'
 import type { PropType } from 'vue'
+import type { Piece } from '@/utils/gameLogic' // Make sure to import the Piece type
 
 export default defineComponent({
   name: 'HeldPiecePreview',
   props: {
     piece: {
-      type: Array as PropType<number[][] | null>,
+      type: Object as PropType<Piece | null>,
       default: null
     }
   }
