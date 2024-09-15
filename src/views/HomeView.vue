@@ -3,15 +3,15 @@
     <h1 class="mb-4">Tetris Game</h1>
     <div class="d-flex justify-center mb-4">
       <tetris-board :board="gameBoard" />
-      <div class="ml-4">
+      <div class="ml-4" v-if="hasGameStarted">
         <h2>Score: {{ score }}</h2>
         <h3>Level: {{ level }}</h3>
         <h3>Lines Cleared: {{ linesCleared }}</h3>
-        <h3 v-if="isGameOver" class="error--text">Game Over</h3>
         <next-piece-preview :piece="nextPiece" />
         <held-piece-preview :piece="heldPiece" />
       </div>
     </div>
+    <h3 v-if="isGameOver" class="error--text">Game Over</h3>
     <v-btn @click="handleGameControl" color="primary" class="mr-2">{{
       gameControlButtonText
     }}</v-btn>
@@ -77,6 +77,7 @@ export default defineComponent({
     const level = ref(1)
     const linesCleared = ref(0)
     let gameLoop: number | null = null
+    const isGameActive = computed(() => hasGameStarted.value && !isGameOver.value)
 
     // Game stats
     const defaultGameStats: GameStats = {
@@ -103,6 +104,7 @@ export default defineComponent({
 
     const gameBoard = computed(() => {
       const newBoard = board.value.map((row) => [...row])
+      if (!isGameActive.value) return newBoard
       const ghostPosition = calculateGhostPosition()
       currentPiece.value.forEach((row: number[], y: number) => {
         row.forEach((cell: number, x: number) => {
@@ -429,7 +431,8 @@ export default defineComponent({
       linesCleared,
       heldPiece,
       gameStats,
-      formatTime
+      formatTime,
+      isGameActive
     }
   }
 })
