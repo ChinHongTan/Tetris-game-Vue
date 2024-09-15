@@ -57,6 +57,16 @@ export default defineComponent({
 
     const gameBoard = computed(() => {
       const newBoard = board.value.map((row) => [...row])
+      const ghostPosition = calculateGhostPosition()
+      currentPiece.value.forEach((row: number[], y: number) => {
+        row.forEach((cell: number, x: number) => {
+          if (cell !== 0) {
+            newBoard[ghostPosition.y + y][ghostPosition.x + x] = -1 // Use -1 to represent ghost piece
+          }
+        })
+      })
+
+      // Draw current piece
       currentPiece.value.forEach((row: number[], y: number) => {
         row.forEach((cell: number, x: number) => {
           if (cell !== 0) {
@@ -64,6 +74,7 @@ export default defineComponent({
           }
         })
       })
+
       return newBoard
     })
 
@@ -86,6 +97,14 @@ export default defineComponent({
     const calculateGameSpeed = (currentLevel: number) => {
       // Decrease game speed by 50ms for each level, with a minimum of 100ms
       return Math.max(1000 - (currentLevel - 1) * 50, 100)
+    }
+
+    const calculateGhostPosition = () => {
+      const ghostPosition = { ...currentPosition.value }
+      while (isValidMove({ ...ghostPosition, y: ghostPosition.y + 1 })) {
+        ghostPosition.y++
+      }
+      return ghostPosition
     }
 
     const rotate = () => {
