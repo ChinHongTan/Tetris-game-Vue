@@ -16,6 +16,28 @@
       gameControlButtonText
     }}</v-btn>
     <v-btn @click="resetGame" color="error" :disabled="!hasGameStarted"> Reset Game </v-btn>
+
+    <!-- Game Statistics Section -->
+    <v-card class="mt-4 pa-4">
+      <h3 class="mb-2">Game Statistics</h3>
+      <v-row>
+        <v-col cols="6" sm="4">
+          <p>Total Pieces: {{ gameStats.totalPiecesPlaced || 0 }}</p>
+        </v-col>
+        <v-col cols="6" sm="4">
+          <p>Total Lines: {{ gameStats.totalLinesCleared || 0 }}</p>
+        </v-col>
+        <v-col cols="6" sm="4">
+          <p>Longest Game: {{ formatTime(gameStats.longestGame) }}</p>
+        </v-col>
+        <v-col cols="6" sm="4">
+          <p>Highest Score: {{ gameStats.highestScore || 0 }}</p>
+        </v-col>
+        <v-col cols="6" sm="4">
+          <p>Games Played: {{ gameStats.gamesPlayed || 0 }}</p>
+        </v-col>
+      </v-row>
+    </v-card>
   </v-container>
 </template>
 
@@ -24,6 +46,7 @@ import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue'
 import TetrisBoard from '@/components/TetrisBoard.vue'
 import NextPiecePreview from '@/components/NextPiecePreview.vue'
 import HeldPiecePreview from '@/components/HeldPiecePreview.vue'
+import type { GameStats } from '@/types/gameTypes'
 import {
   createEmptyBoard,
   randomTetromino,
@@ -54,6 +77,29 @@ export default defineComponent({
     const level = ref(1)
     const linesCleared = ref(0)
     let gameLoop: number | null = null
+
+    // Game stats
+    const defaultGameStats: GameStats = {
+      totalPiecesPlaced: 0,
+      totalLinesCleared: 0,
+      longestGame: 0,
+      highestScore: 0,
+      gamesPlayed: 0
+    }
+
+    const gameStats = ref<GameStats>({ ...defaultGameStats })
+
+    const gameStartTime = ref(0)
+
+    const updateGameStats = () => {
+      if (!gameStats.value) {
+        gameStats.value = { ...defaultGameStats }
+      }
+      gameStats.value.totalPiecesPlaced = (gameStats.value.totalPiecesPlaced || 0) + 1
+      const currentGameTime = Math.floor((Date.now() - gameStartTime.value) / 1000)
+      gameStats.value.longestGame = Math.max(gameStats.value.longestGame || 0, currentGameTime)
+      gameStats.value.highestScore = Math.max(gameStats.value.highestScore || 0, score.value)
+    }
 
     const gameBoard = computed(() => {
       const newBoard = board.value.map((row) => [...row])
@@ -144,6 +190,7 @@ export default defineComponent({
       if (!isValidMove(currentPosition.value)) {
         endGame()
       }
+      updateGameStats()
     }
 
     const holdPiece = () => {
@@ -187,6 +234,7 @@ export default defineComponent({
       if (linesCleared > 0) {
         updateScore(linesCleared)
       }
+      gameStats.value.totalLinesCleared = (gameStats.value.totalLinesCleared || 0) + linesCleared
     }
 
     const updateScore = (clearedLines: number) => {
@@ -221,6 +269,8 @@ export default defineComponent({
       linesCleared.value = 0
       heldPiece.value = null
       canSwapHeld.value = true
+      gameStartTime.value = Date.now()
+      gameStats.value.gamesPlayed++
 
       if (gameLoop) {
         clearInterval(gameLoop)
@@ -263,6 +313,7 @@ export default defineComponent({
         clearInterval(gameLoop)
         gameLoop = null
       }
+      updateGameStats()
     }
 
     const handleGameControl = () => {
@@ -325,13 +376,47 @@ export default defineComponent({
       }
     }
 
+    const formatTime = (seconds: number) => {
+      if (!seconds || isNaN(seconds)) return '0:00'
+      const minutes = Math.floor(seconds / 60)
+      const remainingSeconds = seconds % 60
+      return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+    }
+
+    const saveGameStats = (stats: GameStats) => {
+      localStorage.setItem('tetrisGameStats', JSON.stringify(stats))
+    }
+
+    const loadGameStats = () => {
+      const savedStats = localStorage.getItem('tetrisGameStats')
+      if (savedStats) {
+        try {
+          const parsedStats = JSON.parse(savedStats)
+          gameStats.value = {
+            totalPiecesPlaced: parsedStats.totalPiecesPlaced || 0,
+            totalLinesCleared: parsedStats.totalLinesCleared || 0,
+            longestGame: parsedStats.longestGame || 0,
+            highestScore: parsedStats.highestScore || 0,
+            gamesPlayed: parsedStats.gamesPlayed || 0
+          }
+        } catch (error) {
+          console.error('Error parsing saved game stats:', error)
+          gameStats.value = { ...defaultGameStats }
+        }
+      } else {
+        gameStats.value = { ...defaultGameStats }
+      }
+    }
+
     onMounted(() => {
       window.addEventListener('keydown', handleKeydown)
+      loadGameStats()
     })
 
     onUnmounted(() => {
       window.removeEventListener('keydown', handleKeydown)
       if (gameLoop) clearInterval(gameLoop)
+      saveGameStats(gameStats.value)
     })
 
     return {
@@ -345,7 +430,9 @@ export default defineComponent({
       nextPiece,
       level,
       linesCleared,
-      heldPiece
+      heldPiece,
+      gameStats,
+      formatTime
     }
   }
 })
