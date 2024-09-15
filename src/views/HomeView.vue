@@ -78,7 +78,7 @@ export default defineComponent({
     const canSwapHeld = ref(true)
     const level = ref(1)
     const linesCleared = ref(0)
-    let gameLoop: number | null = null
+    let gameLoop: ReturnType<typeof setInterval> | null = null
     const isGameActive = computed(() => hasGameStarted.value && !isGameOver.value)
     const finalStats = ref({
       score: 0,
