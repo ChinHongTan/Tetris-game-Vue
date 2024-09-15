@@ -4,9 +4,9 @@
     <div class="d-flex justify-center mb-4">
       <tetris-board :board="gameBoard" />
       <div class="ml-4" v-if="hasGameStarted">
-        <h2>Score: {{ score }}</h2>
-        <h3>Level: {{ level }}</h3>
-        <h3>Lines Cleared: {{ linesCleared }}</h3>
+        <h2>Score: {{ isGameOver ? finalStats.score : score }}</h2>
+        <h3>Level: {{ isGameOver ? finalStats.level : level }}</h3>
+        <h3>Lines Cleared: {{ isGameOver ? finalStats.linesCleared : linesCleared }}</h3>
         <next-piece-preview :piece="nextPiece" />
         <held-piece-preview :piece="heldPiece" />
       </div>
@@ -78,6 +78,11 @@ export default defineComponent({
     const linesCleared = ref(0)
     let gameLoop: number | null = null
     const isGameActive = computed(() => hasGameStarted.value && !isGameOver.value)
+    const finalStats = ref({
+      score: 0,
+      level: 1,
+      linesCleared: 0
+    })
 
     // Game stats
     const defaultGameStats: GameStats = {
@@ -349,6 +354,12 @@ export default defineComponent({
       isGameOver.value = false
       isPlaying.value = false
       gameSpeed.value = calculateGameSpeed(1) // Reset game speed to level 1
+
+      finalStats.value = {
+        score: 0,
+        level: 1,
+        linesCleared: 0
+      }
     }
 
     const endGame = () => {
@@ -359,6 +370,12 @@ export default defineComponent({
         gameLoop = null
       }
       updateGameStats()
+
+      finalStats.value = {
+        score: score.value,
+        level: level.value,
+        linesCleared: linesCleared.value
+      }
     }
 
     const handleGameControl = () => {
@@ -481,6 +498,7 @@ export default defineComponent({
       gameControlButtonText,
       hasGameStarted,
       score,
+      finalStats,
       isGameOver,
       nextPiece,
       level,

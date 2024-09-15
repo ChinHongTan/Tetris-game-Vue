@@ -35,7 +35,7 @@ const TETROMINOS = {
 }
 
 export const randomTetromino = () => {
-  const keys = Object.keys(TETROMINOS)
+  const keys = Object.keys(TETROMINOS) as (keyof typeof TETROMINOS)[]
   return TETROMINOS[keys[Math.floor(Math.random() * keys.length)]]
 }
 
