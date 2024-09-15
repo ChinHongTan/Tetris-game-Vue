@@ -257,18 +257,9 @@ export default defineComponent({
     }
 
     const startGame = () => {
-      score.value = 0
-      board.value = createEmptyBoard()
-      currentPiece.value = randomTetromino()
-      nextPiece.value = randomTetromino()
-      currentPosition.value = { x: Math.floor(BOARD_WIDTH / 2) - 1, y: 0 }
+      resetGame()
       isPlaying.value = true
       hasGameStarted.value = true
-      isGameOver.value = false
-      level.value = 1
-      linesCleared.value = 0
-      heldPiece.value = null
-      canSwapHeld.value = true
       gameStartTime.value = Date.now()
       gameStats.value.gamesPlayed++
 
@@ -299,11 +290,17 @@ export default defineComponent({
     const resetGame = () => {
       pauseGame()
       score.value = 0
+      level.value = 1
+      linesCleared.value = 0
       board.value = createEmptyBoard()
       currentPiece.value = randomTetromino()
+      nextPiece.value = randomTetromino()
+      heldPiece.value = null
+      canSwapHeld.value = true
       currentPosition.value = { x: Math.floor(BOARD_WIDTH / 2) - 1, y: 0 }
       hasGameStarted.value = false
       isGameOver.value = false
+      gameSpeed.value = calculateGameSpeed(1) // Reset game speed to level 1
     }
 
     const endGame = () => {
