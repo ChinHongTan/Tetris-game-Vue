@@ -1,83 +1,99 @@
 <template>
   <div
+    ref="swipeTarget"
     class="swipe-controls"
-    @touchstart="onTouchStart"
-    @touchmove="onTouchMove"
-    @touchend="onTouchEnd"
+    @touchstart="handleTouchStart"
+    @touchmove="handleTouchMove"
+    @touchend="handleTouchEnd"
   ></div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue'
+import { defineComponent, ref, onMounted } from 'vue'
+import { useSwipe } from '@vueuse/core'
 
 export default defineComponent({
   name: 'SwipeControls',
   emits: ['move', 'rotate', 'hardDrop', 'hold'],
   setup(props, { emit }) {
+    const swipeTarget = ref<HTMLElement | null>(null)
     const touchStartX = ref(0)
     const touchStartY = ref(0)
-    const touchEndX = ref(0)
-    const touchEndY = ref(0)
-    const isSwiping = ref(false)
+    const lastTouchX = ref(0)
+    const lastTouchY = ref(0)
+    const cellWidth = ref(0)
+    const cellHeight = ref(0)
 
-    const onTouchStart = (e: TouchEvent) => {
-      touchStartX.value = e.touches[0].clientX
-      touchStartY.value = e.touches[0].clientY
-      isSwiping.value = false
+    const { isSwiping, direction } = useSwipe(swipeTarget, {
+      threshold: 30
+    })
+
+    onMounted(() => {
+      if (swipeTarget.value) {
+        cellWidth.value = swipeTarget.value.clientWidth / 10 // Assuming 10 columns
+        cellHeight.value = swipeTarget.value.clientHeight / 20 // Assuming 20 rows
+      }
+    })
+
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault()
+      const touch = e.touches[0]
+      touchStartX.value = touch.clientX
+      touchStartY.value = touch.clientY
+      lastTouchX.value = touch.clientX
+      lastTouchY.value = touch.clientY
     }
 
-    const onTouchMove = (e: TouchEvent) => {
-      if (!isSwiping.value) {
-        isSwiping.value = true
-      }
-      touchEndX.value = e.touches[0].clientX
-      touchEndY.value = e.touches[0].clientY
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      const currentX = touch.clientX
+      const currentY = touch.clientY
+      const deltaX = currentX - lastTouchX.value
+      const deltaY = currentY - lastTouchY.value
 
-      const dY = touchEndY.value - touchStartY.value
-      if (dY > 0) {
-        // Swipe down - move faster
-        emit('move', 'down')
-      }
-    }
+      // Handle horizontal movement
+      if (Math.abs(deltaX) >= cellWidth.value) {
+        const moves = Math.floor(Math.abs(deltaX) / cellWidth.value)
+        const direction = deltaX > 0 ? 'right' : 'left'
 
-    const onTouchEnd = () => {
-      if (!isSwiping.value) {
-        // Tap
-        emit('rotate')
-        return
-      }
-      const dx = touchEndX.value - touchStartX.value
-      const dy = touchEndY.value - touchStartY.value
-
-      if (Math.abs(dx) > Math.abs(dy)) {
-        // Horizontal swipe
-        if (dx > 0) {
-          emit('move', 'right')
-        } else {
-          emit('move', 'left')
+        for (let i = 0; i < moves; i++) {
+          emit('move', direction)
         }
-      } else {
-        // Vertical swipe
-        if (dy > 0) {
+
+        lastTouchX.value = currentX
+      }
+
+      // Handle vertical movement
+      if (deltaY > 0 && deltaY >= cellHeight.value) {
+        const moves = Math.floor(deltaY / cellHeight.value)
+
+        for (let i = 0; i < moves; i++) {
+          emit('move', 'down')
+        }
+
+        lastTouchY.value = currentY
+      }
+    }
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (isSwiping.value) {
+        const totalYMove = e.changedTouches[0].clientY - touchStartY.value
+        if (direction.value === 'up' && totalYMove < -50) {
+          emit('hold')
+        } else if (direction.value === 'down' && totalYMove > cellHeight.value * 5) {
+          // Only hard drop if swiped down significantly
           emit('hardDrop')
-        } else {
-          emit('rotate')
         }
+      } else if (
+        Math.abs(lastTouchX.value - touchStartX.value) < cellWidth.value &&
+        Math.abs(lastTouchY.value - touchStartY.value) < cellHeight.value
+      ) {
+        // If the touch didn't move much, consider it a tap for rotation
+        emit('rotate')
       }
-
-      // Reset
-      touchStartX.value = 0
-      touchEndY.value = 0
-      touchEndX.value = 0
-      touchEndY.value = 0
-      isSwiping.value = false
     }
 
-    return {
-      onTouchStart,
-      onTouchMove,
-      onTouchEnd,
-    }
+    return { swipeTarget, handleTouchStart, handleTouchMove, handleTouchEnd }
   }
 })
 </script>

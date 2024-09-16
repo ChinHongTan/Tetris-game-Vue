@@ -1,52 +1,64 @@
 <template>
-  <v-container class="text-center">
+  <v-container class="text-center game-container">
     <h1 class="mb-4">Tetris Game</h1>
-    <div class="d-flex justify-center mb-4">
-      <div class="game-area" :class="{ 'mobile-view': isMobile }">
-        <tetris-board :board="gameBoard" />
-        <SwipeControls
-          @move="movePiece"
-          @rotate="rotate"
-          @hardDrop="hardDrop"
-          @hold="holdPiece"
-          v-if="isMobile && isGameActive"
-        />
-      </div>
-      <div class="ml-4" v-if="hasGameStarted">
-        <h2>Score: {{ isGameOver ? finalStats.score : score }}</h2>
-        <h3>Level: {{ isGameOver ? finalStats.level : level }}</h3>
-        <h3>Lines Cleared: {{ isGameOver ? finalStats.linesCleared : linesCleared }}</h3>
-        <next-piece-preview :piece="nextPiece" />
+    <div class="score-area">
+      <h2>Score: {{ isGameOver ? finalStats.score : score }}</h2>
+    </div>
+    <div class="game-layout">
+      <div class="left-side">
         <held-piece-preview :piece="heldPiece" />
+        <h3>Level: {{ isGameOver ? finalStats.level : level }}</h3>
+        <h3>Lines: {{ isGameOver ? finalStats.linesCleared : linesCleared }}</h3>
+      </div>
+      <div class="center-area">
+        <div class="game-area" :class="{ 'mobile-view': isMobile }">
+          <tetris-board :board="gameBoard" />
+          <swipe-controls
+            v-if="isMobile && isGameActive"
+            @move="movePiece"
+            @rotate="rotate"
+            @hardDrop="hardDrop"
+            @hold="holdPiece"
+          />
+        </div>
+        <div class="control-buttons mt-2">
+          <v-btn @click="handleGameControl" color="primary" class="mr-2">{{
+            gameControlButtonText
+          }}</v-btn>
+          <v-btn @click="resetGame" color="error" :disabled="!hasGameStarted"> Reset Game </v-btn>
+        </div>
+      </div>
+      <div class="right-side">
+        <next-piece-preview :piece="nextPiece" />
+        <v-btn @click="toggleStats" class="mt-4 stats-button" size="small" color="primary">
+          <v-icon>mdi-plus</v-icon>
+          <span v-if="!isMobile">{{ showStats ? 'Hide' : 'Show' }} Stats</span>
+        </v-btn>
       </div>
     </div>
-    <h3 v-if="isGameOver" class="error--text">Game Over</h3>
-    <v-btn @click="handleGameControl" @keydown.space.prevent color="primary" class="mr-2">{{
-      gameControlButtonText
-    }}</v-btn>
-    <v-btn @click="resetGame" color="error" :disabled="!hasGameStarted"> Reset Game </v-btn>
 
-    <!-- Game Statistics Section -->
-    <v-card class="mt-4 pa-4">
-      <h3 class="mb-2">Game Statistics</h3>
-      <v-row>
-        <v-col cols="6" sm="4">
-          <p>Total Pieces: {{ gameStats.totalPiecesPlaced || 0 }}</p>
-        </v-col>
-        <v-col cols="6" sm="4">
-          <p>Total Lines: {{ gameStats.totalLinesCleared || 0 }}</p>
-        </v-col>
-        <v-col cols="6" sm="4">
-          <p>Longest Game: {{ formatTime(gameStats.longestGame) }}</p>
-        </v-col>
-        <v-col cols="6" sm="4">
-          <p>Highest Score: {{ gameStats.highestScore || 0 }}</p>
-        </v-col>
-        <v-col cols="6" sm="4">
-          <p>Games Played: {{ gameStats.gamesPlayed || 0 }}</p>
-        </v-col>
-      </v-row>
-    </v-card>
+    <v-expand-transition>
+      <v-card v-if="showStats" class="mt-4 pa-4 stats-card">
+        <h3 class="mb-2">Game Statistics</h3>
+        <v-row>
+          <v-col cols="6" sm="4">
+            <p>Total Pieces: {{ gameStats.totalPiecesPlaced || 0 }}</p>
+          </v-col>
+          <v-col cols="6" sm="4">
+            <p>Total Lines: {{ gameStats.totalLinesCleared || 0 }}</p>
+          </v-col>
+          <v-col cols="6" sm="4">
+            <p>Longest Game: {{ formatTime(gameStats.longestGame) }}</p>
+          </v-col>
+          <v-col cols="6" sm="4">
+            <p>Highest Score: {{ gameStats.highestScore || 0 }}</p>
+          </v-col>
+          <v-col cols="6" sm="4">
+            <p>Games Played: {{ gameStats.gamesPlayed || 0 }}</p>
+          </v-col>
+        </v-row>
+      </v-card>
+    </v-expand-transition>
   </v-container>
 </template>
 
@@ -97,7 +109,7 @@ export default defineComponent({
       linesCleared: 0
     })
     const isMobile = ref(false)
-
+    const showStats = ref(false)
     // Game stats
     const defaultGameStats: GameStats = {
       totalPiecesPlaced: 0,
@@ -106,10 +118,12 @@ export default defineComponent({
       highestScore: 0,
       gamesPlayed: 0
     }
-
     const gameStats = ref<GameStats>({ ...defaultGameStats })
-
     const gameStartTime = ref(0)
+
+    const toggleStats = () => {
+      showStats.value = !showStats.value
+    }
 
     const updateGameStats = () => {
       if (!gameStats.value) {
@@ -555,16 +569,55 @@ export default defineComponent({
       hardDrop,
       holdPiece,
       isMobile,
-      isGameActive
+      isGameActive,
+      showStats,
+      toggleStats
     }
   }
 })
 </script>
 
 <style scoped>
+.game-container {
+  max-width: 100%;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.score-area {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.game-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 1000px;
+}
+
+.left-side,
+.right-side {
+  width: 20%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 1rem;
+}
+
+.center-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 60%;
+}
+
 .game-area {
-  position: relative;
-  display: inline-block;
+  width: 100%;
+  max-width: 400px;
 }
 
 .mobile-view {
@@ -574,15 +627,71 @@ export default defineComponent({
   aspect-ratio: 10 / 20;
 }
 
-@media (max-width: 600px) {
-  .d-flex {
-    flex-direction: column;
-    align-items: center;
+.control-buttons {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.stats-card {
+  width: 100%;
+  max-width: 800px;
+}
+
+@media (max-width: 768px) {
+  .game-layout {
+    flex-direction: row;
+    align-items: flex-start;
   }
 
-  .ml-4 {
-    margin-left: 0 !important;
-    margin-top: 1rem;
+  .left-side,
+  .right-side {
+    width: 20%;
+    flex-direction: column;
+    justify-content: flex-start;
+    margin-bottom: 0;
+  }
+
+  .center-area {
+    width: 60%;
+  }
+
+  .game-area {
+    width: 100%;
+    max-width: 90vw;
+  }
+
+  .held-piece-preview,
+  .next-piece-preview {
+    transform: scale(0.8);
+  }
+
+  h3 {
+    font-size: 0.9rem;
+  }
+
+  .v-btn {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .left-side,
+  .right-side {
+    width: 15%;
+  }
+
+  .center-area {
+    width: 70%;
+  }
+
+  h3 {
+    font-size: 0.8rem;
+  }
+
+  .v-btn {
+    font-size: 0.7rem;
+    padding: 0 8px;
   }
 }
 </style>
