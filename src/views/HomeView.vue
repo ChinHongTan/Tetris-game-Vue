@@ -2,7 +2,16 @@
   <v-container class="text-center">
     <h1 class="mb-4">Tetris Game</h1>
     <div class="d-flex justify-center mb-4">
-      <tetris-board :board="gameBoard" />
+      <div class="game-area" :class="{ 'mobile-view': isMobile }">
+        <tetris-board :board="gameBoard" />
+        <SwipeControls
+          @move="movePiece"
+          @rotate="rotate"
+          @hardDrop="hardDrop"
+          @hold="holdPiece"
+          v-if="isMobile && isGameActive"
+        />
+      </div>
       <div class="ml-4" v-if="hasGameStarted">
         <h2>Score: {{ isGameOver ? finalStats.score : score }}</h2>
         <h3>Level: {{ isGameOver ? finalStats.level : level }}</h3>
@@ -48,6 +57,7 @@ import NextPiecePreview from '@/components/NextPiecePreview.vue'
 import HeldPiecePreview from '@/components/HeldPiecePreview.vue'
 import type { GameStats } from '@/types/gameTypes'
 import { KICK_TABLES, type KickData } from '@/utils/srs'
+import SwipeControls from '@/components/SwipeControls.vue'
 import {
   createEmptyBoard,
   randomTetromino,
@@ -62,7 +72,8 @@ export default defineComponent({
   components: {
     TetrisBoard,
     NextPiecePreview,
-    HeldPiecePreview
+    HeldPiecePreview,
+    SwipeControls
   },
   setup() {
     const board = ref(createEmptyBoard())
@@ -85,6 +96,7 @@ export default defineComponent({
       level: 1,
       linesCleared: 0
     })
+    const isMobile = ref(false)
 
     // Game stats
     const defaultGameStats: GameStats = {
@@ -512,6 +524,9 @@ export default defineComponent({
     onMounted(() => {
       window.addEventListener('keydown', handleKeydown)
       loadGameStats()
+      isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      )
     })
 
     onUnmounted(() => {
@@ -535,8 +550,35 @@ export default defineComponent({
       heldPiece,
       gameStats,
       formatTime,
+      isMobile,
       isGameActive
     }
   }
 })
 </script>
+
+<style scoped>
+.game-area {
+  position: relative;
+  display: inline-block;
+}
+
+.mobile-view {
+  width: 100%;
+  max-width: 100vw;
+  height: auto;
+  aspect-ratio: 10 / 20;
+}
+
+@media (max-width: 600px) {
+  .d-flex {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .ml-4 {
+    margin-left: 0 !important;
+    margin-top: 1rem;
+  }
+}
+</style>
