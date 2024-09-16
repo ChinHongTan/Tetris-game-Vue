@@ -23,6 +23,8 @@ export default defineComponent({
     const lastTouchY = ref(0)
     const cellWidth = ref(0)
     const cellHeight = ref(0)
+    const swipeStartTime = ref(0)
+    const HARD_DROP_THRESHOLD = 200 // milliseconds
 
     const { isSwiping, direction } = useSwipe(swipeTarget, {
       threshold: 30
@@ -42,6 +44,7 @@ export default defineComponent({
       touchStartY.value = touch.clientY
       lastTouchX.value = touch.clientX
       lastTouchY.value = touch.clientY
+      swipeStartTime.value = Date.now()
     }
 
     const handleTouchMove = (e: TouchEvent) => {
@@ -76,13 +79,18 @@ export default defineComponent({
     }
 
     const handleTouchEnd = (e: TouchEvent) => {
+      const swipeDuration = Date.now() - swipeStartTime.value
+      const totalYMove = e.changedTouches[0].clientY - touchStartY.value
+
       if (isSwiping.value) {
-        const totalYMove = e.changedTouches[0].clientY - touchStartY.value
         if (direction.value === 'up' && totalYMove < -50) {
           emit('hold')
-        } else if (direction.value === 'down' && totalYMove > cellHeight.value * 5) {
-          // Only hard drop if swiped down significantly
-          emit('hardDrop')
+        } else if (direction.value === 'down') {
+          if (swipeDuration < HARD_DROP_THRESHOLD && totalYMove > cellHeight.value) {
+            // Fast downward swipe triggers hard drop
+            emit('hardDrop')
+          }
+          // else: slow swipes are handled by handleTouchMove for gradual descent
         }
       } else if (
         Math.abs(lastTouchX.value - touchStartX.value) < cellWidth.value &&

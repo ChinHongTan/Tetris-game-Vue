@@ -631,6 +631,11 @@ export default defineComponent({
   width: 100%;
   display: flex;
   justify-content: center;
+  z-index: 2;
+}
+
+.stats-button {
+  z-index: 2;
 }
 
 .stats-card {
