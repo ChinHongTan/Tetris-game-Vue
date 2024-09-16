@@ -25,6 +25,7 @@ export default defineComponent({
     const cellHeight = ref(0)
     const swipeStartTime = ref(0)
     const HARD_DROP_THRESHOLD = 200 // milliseconds
+    const HORIZONTAL_SENSITIVITY = 0.7
 
     const { isSwiping, direction } = useSwipe(swipeTarget, {
       threshold: 30
@@ -32,8 +33,8 @@ export default defineComponent({
 
     onMounted(() => {
       if (swipeTarget.value) {
-        cellWidth.value = swipeTarget.value.clientWidth / 10 // Assuming 10 columns
-        cellHeight.value = swipeTarget.value.clientHeight / 20 // Assuming 20 rows
+        cellWidth.value = (swipeTarget.value.clientWidth / 10) * HORIZONTAL_SENSITIVITY
+        cellHeight.value = swipeTarget.value.clientHeight / 20
       }
     })
 

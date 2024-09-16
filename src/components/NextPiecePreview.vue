@@ -14,8 +14,7 @@
 <script lang="ts">
 import { defineComponent } from 'vue'
 import type { PropType } from 'vue'
-import type { Piece } from '@/utils/gameLogic' // Make sure to import the Piece type
-
+import type { Piece } from '@/utils/gameLogic'
 export default defineComponent({
   name: 'NextPiecePreview',
   props: {
