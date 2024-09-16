@@ -56,7 +56,7 @@ import TetrisBoard from '@/components/TetrisBoard.vue'
 import NextPiecePreview from '@/components/NextPiecePreview.vue'
 import HeldPiecePreview from '@/components/HeldPiecePreview.vue'
 import type { GameStats } from '@/types/gameTypes'
-import { KICK_TABLES, type KickData } from '@/utils/srs'
+import { KICK_TABLES } from '@/utils/srs'
 import SwipeControls from '@/components/SwipeControls.vue'
 import {
   createEmptyBoard,
@@ -550,6 +550,10 @@ export default defineComponent({
       heldPiece,
       gameStats,
       formatTime,
+      movePiece,
+      rotate,
+      hardDrop,
+      holdPiece,
       isMobile,
       isGameActive
     }
