@@ -479,15 +479,23 @@ export default defineComponent({
 
       switch (event.key) {
         case 'ArrowLeft':
+        case 'a':
+        case 'A':
           movePiece('left')
           break
         case 'ArrowRight':
+        case 'd':
+        case 'D':
           movePiece('right')
           break
         case 'ArrowDown':
+        case 's':
+        case 'S':
           movePiece('down')
           break
         case 'ArrowUp':
+        case 'w':
+        case 'W':
           rotate(1) // Clockwise rotation
           break
         case 'z':
@@ -666,17 +674,8 @@ export default defineComponent({
     max-width: 90vw;
   }
 
-  .held-piece-preview,
-  .next-piece-preview {
-    transform: scale(0.8);
-  }
-
   h3 {
     font-size: 0.9rem;
-  }
-
-  .v-btn {
-    font-size: 0.8rem;
   }
 }
 
@@ -692,11 +691,6 @@ export default defineComponent({
 
   h3 {
     font-size: 0.8rem;
-  }
-
-  .v-btn {
-    font-size: 0.7rem;
-    padding: 0 8px;
   }
 }
 </style>
